@@ -380,14 +380,14 @@
                                     <span id="labelCurrYear">Current</span>
                                 </button>
                             </li>
-                            <li class="nav-item" role="presentation">
+                            <li class="nav-item" role="presentation" id="prev-year-tab-item">
                                 <button class="nav-link py-0 px-2" id="prev-year-tab" data-bs-toggle="tab"
                                     data-bs-target="#prev-year-pane" type="button" role="tab"
                                     style="font-size: 0.78rem;">
                                     <span id="labelPrevYear">Prev</span>
                                 </button>
                             </li>
-                            <li class="nav-item" role="presentation">
+                            <li class="nav-item" role="presentation" id="past-year-tab-item">
                                 <button class="nav-link py-0 px-2" id="past-year-tab" data-bs-toggle="tab"
                                     data-bs-target="#past-year-pane" type="button" role="tab"
                                     style="font-size: 0.78rem;">
@@ -775,11 +775,15 @@
             document.getElementById('labelPastYear').innerText = pastYear;
             document.getElementById('titlePastYear').innerText = pastYear;
 
-            const fetchAndFill = async (year, prefix) => {
+            const fetchAndFill = async (year, prefix, tabItemId) => {
                 try {
                     const response = await fetch(`api.php?action=year_stats&year=${year}`);
                     const stats = await response.json();
-                    if (!stats) return;
+
+                    if (!stats || !stats.max_temp) {
+                        if (tabItemId) document.getElementById(tabItemId).style.display = 'none';
+                        return;
+                    }
 
                     document.getElementById(prefix + 'Max').innerText = stats.max_temp ? stats.max_temp + "°" : '--';
                     document.getElementById(prefix + 'Min').innerText = stats.min_temp ? stats.min_temp + "°" : '--';
@@ -792,9 +796,9 @@
                 } catch (e) { console.error(`Błąd pobierania statystyk dla roku ${year}:`, e); }
             };
 
-            await fetchAndFill(currentYear, 'currYear');
-            await fetchAndFill(prevYear, 'prevYear');
-            await fetchAndFill(pastYear, 'pastYear');
+            await fetchAndFill(currentYear, 'currYear', null);
+            await fetchAndFill(prevYear, 'prevYear', 'prev-year-tab-item');
+            await fetchAndFill(pastYear, 'pastYear', 'past-year-tab-item');
         }
 
         function renderChart(canvasId, labels, data, label, color, oldInstance, setInstance) {
