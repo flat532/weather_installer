@@ -86,6 +86,7 @@ fi
 print_step "Ścieżka instalacji"
 ask "Pełna ścieżka docelowa (np. /home/user/domains/mojadomena.pl/public_html)" "" INSTALL_PATH
 validate_not_empty "$INSTALL_PATH" "Ścieżka instalacji" || exit 1
+INSTALL_PATH="${INSTALL_PATH%/}"
 
 if [ -d "$INSTALL_PATH" ] && [ "$(ls -A "$INSTALL_PATH" 2>/dev/null)" ]; then
     print_warn "Katalog '$INSTALL_PATH' istnieje i nie jest pusty."
@@ -320,7 +321,11 @@ echo -e "${GREEN}${BOLD}╚═════════════════�
 echo ""
 echo -e "  ${BOLD}Ścieżka instalacji:${NC} $INSTALL_PATH"
 echo -e "  ${BOLD}Miasto:${NC}             $WEATHER_LOCATION"
-echo -e "  ${BOLD}Baza danych:${NC}        $DB_NAME @ $DB_HOST"
+if [ "$DB_TYPE" = "sqlite" ]; then
+    echo -e "  ${BOLD}Baza danych:${NC}        SQLite → $SQLITE_PATH"
+else
+    echo -e "  ${BOLD}Baza danych:${NC}        MySQL → $DB_NAME @ $DB_HOST"
+fi
 echo ""
 echo -e "  ${YELLOW}Strona dostępna po skonfigurowaniu domeny na:${NC}"
 echo -e "  ${CYAN}${INSTALL_PATH}/index.html${NC}"
