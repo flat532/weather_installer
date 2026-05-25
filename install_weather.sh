@@ -83,8 +83,13 @@ fi
 
 # ── STEP 1: Install path ─────────────────────────────────────
 
+# Default: one level above the script (script is inside public_html/weather_installer/)
+INSTALL_DEFAULT="$(dirname "$SCRIPT_DIR")"
+# SQLite default: two levels above the script (outside public_html)
+SQLITE_DEFAULT="$(dirname "$(dirname "$SCRIPT_DIR")")/weather.sqlite"
+
 print_step "Install path"
-ask "Full destination path (e.g. /home/user/domains/mydomain.com/public_html)" "" INSTALL_PATH
+ask "Full destination path" "$INSTALL_DEFAULT" INSTALL_PATH
 validate_not_empty "$INSTALL_PATH" "Install path" || exit 1
 INSTALL_PATH="${INSTALL_PATH%/}"
 
@@ -109,7 +114,6 @@ read DB_CHOICE
 
 if [ "$DB_CHOICE" = "2" ]; then
     DB_TYPE="sqlite"
-    SQLITE_DEFAULT="${INSTALL_PATH%/public_html}/weather.sqlite"
     ask "Path to SQLite file" "$SQLITE_DEFAULT" SQLITE_PATH
     validate_not_empty "$SQLITE_PATH" "SQLite path" || exit 1
     print_ok "Mode: SQLite → $SQLITE_PATH"
