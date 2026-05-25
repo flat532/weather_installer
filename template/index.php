@@ -593,11 +593,11 @@
                             <li class="nav-item">
                                 <button class="nav-link py-0 px-2" onclick="loadAvgStats('year', this)" data-range="year">Ten rok</button>
                             </li>
-                            <li class="nav-item">
-                                <button class="nav-link py-0 px-2" onclick="loadAvgStats('2025', this)" data-range="2025">2025</button>
+                            <li class="nav-item" id="avg-prev-year-item">
+                                <button class="nav-link py-0 px-2" id="avg-prev-year-btn" onclick="loadAvgStats(this.dataset.range, this)"></button>
                             </li>
-                            <li class="nav-item">
-                                <button class="nav-link py-0 px-2" onclick="loadAvgStats('2024', this)" data-range="2024">2024</button>
+                            <li class="nav-item" id="avg-past-year-item">
+                                <button class="nav-link py-0 px-2" id="avg-past-year-btn" onclick="loadAvgStats(this.dataset.range, this)"></button>
                             </li>
                         </ul>
                     </div>
@@ -775,13 +775,22 @@
             document.getElementById('labelPastYear').innerText = pastYear;
             document.getElementById('titlePastYear').innerText = pastYear;
 
-            const fetchAndFill = async (year, prefix, tabItemId) => {
+            // ustaw dynamiczne zakładki lat w Średniej Temperaturze
+            const avgPrevBtn = document.getElementById('avg-prev-year-btn');
+            const avgPastBtn = document.getElementById('avg-past-year-btn');
+            avgPrevBtn.innerText = prevYear;
+            avgPrevBtn.dataset.range = prevYear;
+            avgPastBtn.innerText = pastYear;
+            avgPastBtn.dataset.range = pastYear;
+
+            const fetchAndFill = async (year, prefix, tabItemId, avgItemId) => {
                 try {
                     const response = await fetch(`api.php?action=year_stats&year=${year}`);
                     const stats = await response.json();
 
                     if (!stats || !stats.max_temp) {
                         if (tabItemId) document.getElementById(tabItemId).style.display = 'none';
+                        if (avgItemId)  document.getElementById(avgItemId).style.display  = 'none';
                         return;
                     }
 
@@ -796,9 +805,9 @@
                 } catch (e) { console.error(`Błąd pobierania statystyk dla roku ${year}:`, e); }
             };
 
-            await fetchAndFill(currentYear, 'currYear', null);
-            await fetchAndFill(prevYear, 'prevYear', 'prev-year-tab-item');
-            await fetchAndFill(pastYear, 'pastYear', 'past-year-tab-item');
+            await fetchAndFill(currentYear, 'currYear', null, null);
+            await fetchAndFill(prevYear, 'prevYear', 'prev-year-tab-item', 'avg-prev-year-item');
+            await fetchAndFill(pastYear, 'pastYear', 'past-year-tab-item', 'avg-past-year-item');
         }
 
         function renderChart(canvasId, labels, data, label, color, oldInstance, setInstance) {
