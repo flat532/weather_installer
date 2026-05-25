@@ -1,0 +1,9 @@
+Options -Indexes
+<FilesMatch "\.(env|sh|sql|json)$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+<FilesMatch "^(config|update_data)\.php$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
