@@ -2,9 +2,10 @@
 chdir(__DIR__);
 
 // Wczytanie konfiguracji
-$config = require 'config.php';
+$config    = require 'config.php';
 $apiConfig = $config['weather_api'];
-$db = $config['db'];
+$db        = $config['db'];
+require_once 'db.php';
 
 $apiKey = $apiConfig['key'];
 $location = $apiConfig['location'];
@@ -29,40 +30,69 @@ if (!empty($data) && $data !== 'null') {
 
     if ($decoded && isset($decoded['main']['temp'])) {
         try {
-            $dsn = "mysql:host={$db['host']};dbname={$db['name']};charset={$db['charset']}";
-            $pdo = new PDO($dsn, $db['user'], $db['pass'], [
-                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
-            ]);
+            $pdo = getPDO($db);
 
-            $sql = "INSERT INTO weather_data (
-                        location, measurement_datetime, temperature, pressure, humidity,
-                        wind_speed, wind_direction, rainfall, snowfall, visibility,
-                        weather_main, weather_description, weather_icon, cloudiness,
-                        feels_like, sea_level_pressure, ground_level_pressure, raw_json
-                    ) VALUES (
-                        :location, :measurement_datetime, :temperature, :pressure, :humidity,
-                        :wind_speed, :wind_direction, :rainfall, :snowfall, :visibility,
-                        :weather_main, :weather_description, :weather_icon, :cloudiness,
-                        :feels_like, :sea_level_pressure, :ground_level_pressure, :raw_json
-                    ) ON DUPLICATE KEY UPDATE
-                        temperature = VALUES(temperature),
-                        pressure = VALUES(pressure),
-                        humidity = VALUES(humidity),
-                        wind_speed = VALUES(wind_speed),
-                        wind_direction = VALUES(wind_direction),
-                        rainfall = VALUES(rainfall),
-                        snowfall = VALUES(snowfall),
-                        visibility = VALUES(visibility),
-                        weather_main = VALUES(weather_main),
-                        weather_description = VALUES(weather_description),
-                        weather_icon = VALUES(weather_icon),
-                        cloudiness = VALUES(cloudiness),
-                        feels_like = VALUES(feels_like),
-                        sea_level_pressure = VALUES(sea_level_pressure),
-                        ground_level_pressure = VALUES(ground_level_pressure),
-                        raw_json = VALUES(raw_json),
-                        updated_at = CURRENT_TIMESTAMP";
+            $isSQLite = ($db['type'] === 'sqlite');
+
+            if ($isSQLite) {
+                $sql = "INSERT INTO weather_data (
+                            location, measurement_datetime, temperature, pressure, humidity,
+                            wind_speed, wind_direction, rainfall, snowfall, visibility,
+                            weather_main, weather_description, weather_icon, cloudiness,
+                            feels_like, sea_level_pressure, ground_level_pressure, raw_json
+                        ) VALUES (
+                            :location, :measurement_datetime, :temperature, :pressure, :humidity,
+                            :wind_speed, :wind_direction, :rainfall, :snowfall, :visibility,
+                            :weather_main, :weather_description, :weather_icon, :cloudiness,
+                            :feels_like, :sea_level_pressure, :ground_level_pressure, :raw_json
+                        ) ON CONFLICT(location, measurement_datetime) DO UPDATE SET
+                            temperature = excluded.temperature,
+                            pressure = excluded.pressure,
+                            humidity = excluded.humidity,
+                            wind_speed = excluded.wind_speed,
+                            wind_direction = excluded.wind_direction,
+                            rainfall = excluded.rainfall,
+                            snowfall = excluded.snowfall,
+                            visibility = excluded.visibility,
+                            weather_main = excluded.weather_main,
+                            weather_description = excluded.weather_description,
+                            weather_icon = excluded.weather_icon,
+                            cloudiness = excluded.cloudiness,
+                            feels_like = excluded.feels_like,
+                            sea_level_pressure = excluded.sea_level_pressure,
+                            ground_level_pressure = excluded.ground_level_pressure,
+                            raw_json = excluded.raw_json,
+                            updated_at = CURRENT_TIMESTAMP";
+            } else {
+                $sql = "INSERT INTO weather_data (
+                            location, measurement_datetime, temperature, pressure, humidity,
+                            wind_speed, wind_direction, rainfall, snowfall, visibility,
+                            weather_main, weather_description, weather_icon, cloudiness,
+                            feels_like, sea_level_pressure, ground_level_pressure, raw_json
+                        ) VALUES (
+                            :location, :measurement_datetime, :temperature, :pressure, :humidity,
+                            :wind_speed, :wind_direction, :rainfall, :snowfall, :visibility,
+                            :weather_main, :weather_description, :weather_icon, :cloudiness,
+                            :feels_like, :sea_level_pressure, :ground_level_pressure, :raw_json
+                        ) ON DUPLICATE KEY UPDATE
+                            temperature = VALUES(temperature),
+                            pressure = VALUES(pressure),
+                            humidity = VALUES(humidity),
+                            wind_speed = VALUES(wind_speed),
+                            wind_direction = VALUES(wind_direction),
+                            rainfall = VALUES(rainfall),
+                            snowfall = VALUES(snowfall),
+                            visibility = VALUES(visibility),
+                            weather_main = VALUES(weather_main),
+                            weather_description = VALUES(weather_description),
+                            weather_icon = VALUES(weather_icon),
+                            cloudiness = VALUES(cloudiness),
+                            feels_like = VALUES(feels_like),
+                            sea_level_pressure = VALUES(sea_level_pressure),
+                            ground_level_pressure = VALUES(ground_level_pressure),
+                            raw_json = VALUES(raw_json),
+                            updated_at = CURRENT_TIMESTAMP";
+            }
 
             $stmt = $pdo->prepare($sql);
 

@@ -71,7 +71,6 @@ print_banner
 
 echo -e "  Instalator skonfiguruje projekt stacji pogodowej."
 echo -e "  Przed startem upewnij się, że masz:"
-echo -e "    ${YELLOW}•${NC} Utworzoną bazę danych MySQL"
 echo -e "    ${YELLOW}•${NC} Klucz API OpenWeatherMap (openweathermap.org)"
 echo -e "    ${YELLOW}•${NC} Dostęp do crona na serwerze"
 echo ""
@@ -98,16 +97,32 @@ if [ -d "$INSTALL_PATH" ] && [ "$(ls -A "$INSTALL_PATH" 2>/dev/null)" ]; then
     fi
 fi
 
-# ── KROK 2: Baza danych ──────────────────────────────────────
+# ── KROK 2: Typ bazy danych ──────────────────────────────────
 
-print_step "Konfiguracja bazy danych"
-ask "Host bazy danych" "localhost" DB_HOST
-ask "Nazwa bazy danych" "" DB_NAME
-validate_not_empty "$DB_NAME" "Nazwa bazy danych" || exit 1
-ask "Użytkownik bazy danych" "" DB_USER
-validate_not_empty "$DB_USER" "Użytkownik bazy danych" || exit 1
-ask "Hasło bazy danych" "" DB_PASS "true"
-validate_not_empty "$DB_PASS" "Hasło bazy danych" || exit 1
+print_step "Typ bazy danych"
+echo -e "  ${BOLD}Wybierz typ bazy danych:${NC}"
+echo -e "    ${CYAN}1${NC}) MySQL / MariaDB  — wymaga serwera, użytkownika i hasła"
+echo -e "    ${CYAN}2${NC}) SQLite           — jeden plik, zero konfiguracji"
+echo -ne "  Wybór [${YELLOW}1${NC}/${YELLOW}2${NC}]: "
+read DB_CHOICE
+
+if [ "$DB_CHOICE" = "2" ]; then
+    DB_TYPE="sqlite"
+    SQLITE_DEFAULT="${INSTALL_PATH%/public_html}/weather.sqlite"
+    ask "Ścieżka do pliku SQLite" "$SQLITE_DEFAULT" SQLITE_PATH
+    validate_not_empty "$SQLITE_PATH" "Ścieżka SQLite" || exit 1
+    print_ok "Tryb: SQLite → $SQLITE_PATH"
+else
+    DB_TYPE="mysql"
+    ask "Host bazy danych" "localhost" DB_HOST
+    ask "Nazwa bazy danych" "" DB_NAME
+    validate_not_empty "$DB_NAME" "Nazwa bazy danych" || exit 1
+    ask "Użytkownik bazy danych" "" DB_USER
+    validate_not_empty "$DB_USER" "Użytkownik bazy danych" || exit 1
+    ask "Hasło bazy danych" "" DB_PASS "true"
+    validate_not_empty "$DB_PASS" "Hasło bazy danych" || exit 1
+    print_ok "Tryb: MySQL @ $DB_HOST / $DB_NAME"
+fi
 
 # ── KROK 3: Pogoda ──────────────────────────────────────────
 
@@ -118,20 +133,22 @@ validate_not_empty "$WEATHER_API_KEY" "Klucz API" || exit 1
 
 # ── KROK 4: Test połączenia z bazą ──────────────────────────
 
-print_step "Testowanie połączenia z bazą danych"
+if [ "$DB_TYPE" = "mysql" ]; then
+    print_step "Testowanie połączenia z bazą danych"
 
-DB_TEST=$(mysql -h "$DB_HOST" -u "$DB_USER" -p"$DB_PASS" "$DB_NAME" -e "SELECT 1;" 2>&1)
-if echo "$DB_TEST" | grep -q "ERROR\|error\|denied"; then
-    print_err "Nie można połączyć się z bazą danych:"
-    echo "    $DB_TEST"
-    echo ""
-    echo -ne "  Kontynuować mimo błędu? (${YELLOW}t${NC}/${RED}N${NC}): "
-    read db_force
-    if [[ ! "$db_force" =~ ^[Tt]$ ]]; then
-        exit 1
+    DB_TEST=$(mysql -h "$DB_HOST" -u "$DB_USER" -p"$DB_PASS" "$DB_NAME" -e "SELECT 1;" 2>&1)
+    if echo "$DB_TEST" | grep -q "ERROR\|error\|denied"; then
+        print_err "Nie można połączyć się z bazą danych:"
+        echo "    $DB_TEST"
+        echo ""
+        echo -ne "  Kontynuować mimo błędu? (${YELLOW}t${NC}/${RED}N${NC}): "
+        read db_force
+        if [[ ! "$db_force" =~ ^[Tt]$ ]]; then
+            exit 1
+        fi
+    else
+        print_ok "Połączenie z bazą danych: OK"
     fi
-else
-    print_ok "Połączenie z bazą danych: OK"
 fi
 
 # ── KROK 5: Test klucza API ──────────────────────────────────
@@ -162,7 +179,7 @@ print_ok "Katalog archive/ utworzony"
 
 print_step "Kopiowanie plików projektu"
 
-for f in config.php update_data.php api.php index.html .htaccess; do
+for f in config.php update_data.php api.php db.php index.html .htaccess; do
     if [ -f "$TEMPLATE_DIR/$f" ]; then
         cp "$TEMPLATE_DIR/$f" "$INSTALL_PATH/$f"
         print_ok "Skopiowano: $f"
@@ -180,7 +197,18 @@ print_ok "Skopiowano i skonfigurowano: arch.sh"
 
 print_step "Generowanie pliku .env"
 
-cat > "$INSTALL_PATH/.env" <<EOF
+if [ "$DB_TYPE" = "sqlite" ]; then
+    cat > "$INSTALL_PATH/.env" <<EOF
+DB_TYPE=sqlite
+DB_PATH=${SQLITE_PATH}
+
+WEATHER_API_KEY=${WEATHER_API_KEY}
+WEATHER_LOCATION=${WEATHER_LOCATION}
+WEATHER_API_URL=http://api.openweathermap.org/data/2.5/weather
+EOF
+else
+    cat > "$INSTALL_PATH/.env" <<EOF
+DB_TYPE=mysql
 DB_HOST=${DB_HOST}
 DB_NAME=${DB_NAME}
 DB_USER=${DB_USER}
@@ -191,20 +219,42 @@ WEATHER_API_KEY=${WEATHER_API_KEY}
 WEATHER_LOCATION=${WEATHER_LOCATION}
 WEATHER_API_URL=http://api.openweathermap.org/data/2.5/weather
 EOF
+fi
 
 chmod 600 "$INSTALL_PATH/.env"
 print_ok "Plik .env utworzony (uprawnienia 600)"
 
-# ── KROK 9: Tworzenie tabeli SQL ─────────────────────────────
+# ── KROK 9: Tworzenie tabeli ─────────────────────────────────
 
 print_step "Tworzenie tabeli w bazie danych"
 
-mysql -h "$DB_HOST" -u "$DB_USER" -p"$DB_PASS" "$DB_NAME" < "$TEMPLATE_DIR/schema.sql" 2>&1
-if [ $? -eq 0 ]; then
-    print_ok "Tabela weather_data utworzona (lub już istniała)"
+if [ "$DB_TYPE" = "sqlite" ]; then
+    SQLITE_DIR=$(dirname "$SQLITE_PATH")
+    mkdir -p "$SQLITE_DIR"
+    PHP_RESULT=$(php -r "
+        try {
+            \$pdo = new PDO('sqlite:$SQLITE_PATH');
+            \$pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+            \$sql = file_get_contents('$TEMPLATE_DIR/schema_sqlite.sql');
+            \$pdo->exec(\$sql);
+            echo 'OK';
+        } catch (Exception \$e) {
+            echo 'ERR:' . \$e->getMessage();
+        }
+    " 2>&1)
+    if [ "$PHP_RESULT" = "OK" ]; then
+        print_ok "Baza SQLite i tabela weather_data utworzone: $SQLITE_PATH"
+    else
+        print_warn "Problem z utworzeniem bazy SQLite: $PHP_RESULT"
+    fi
 else
-    print_warn "Nie udało się automatycznie utworzyć tabeli. Uruchom ręcznie:"
-    echo "    mysql -h $DB_HOST -u $DB_USER -p $DB_NAME < $TEMPLATE_DIR/schema.sql"
+    mysql -h "$DB_HOST" -u "$DB_USER" -p"$DB_PASS" "$DB_NAME" < "$TEMPLATE_DIR/schema.sql" 2>&1
+    if [ $? -eq 0 ]; then
+        print_ok "Tabela weather_data utworzona (lub już istniała)"
+    else
+        print_warn "Nie udało się automatycznie utworzyć tabeli. Uruchom ręcznie:"
+        echo "    mysql -h $DB_HOST -u $DB_USER -p $DB_NAME < $TEMPLATE_DIR/schema.sql"
+    fi
 fi
 
 # ── KROK 10: Pierwsze pobranie danych ────────────────────────

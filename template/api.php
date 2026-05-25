@@ -6,11 +6,10 @@ error_reporting(0);
 // Wczytanie konfiguracji
 $config = require 'config.php';
 $db = $config['db'];
+require_once 'db.php';
 
 try {
-    // Użycie danych z konfiguracji
-    $dsn = "mysql:host={$db['host']};dbname={$db['name']};charset={$db['charset']}";
-    $pdo = new PDO($dsn, $db['user'], $db['pass']);
+    $pdo = getPDO($db);
     
     $action = $_GET['action'] ?? 'chart_data';
     $date = $_GET['date'] ?? date('Y-m-d');
