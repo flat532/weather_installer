@@ -24,10 +24,10 @@ print_banner() {
     echo -e "${NC}"
 }
 
-print_step() { echo -e "\n${BOLD}${CYAN}▶ $1${NC}"; }
-print_ok()   { echo -e "  ${GREEN}✔ $1${NC}"; }
-print_warn() { echo -e "  ${YELLOW}⚠ $1${NC}"; }
-print_err()  { echo -e "  ${RED}✘ $1${NC}"; }
+print_step() { echo -e "\n${BOLD}${CYAN}-- $1${NC}"; }
+print_ok()   { echo -e "  ${GREEN}[OK]${NC}   $1"; }
+print_warn() { echo -e "  ${YELLOW}[WARN]${NC} $1"; }
+print_err()  { echo -e "  ${RED}[ERR]${NC}  $1"; }
 
 ask() {
     local prompt="$1"
