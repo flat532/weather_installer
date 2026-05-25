@@ -2,7 +2,7 @@
 
 # ============================================================
 #  Weather Station Installer
-#  Stacja pogodowa oparta na OpenWeatherMap + MySQL + PHP
+#  Powered by OpenWeatherMap + MySQL/SQLite + PHP
 # ============================================================
 
 RED='\033[0;31m'
@@ -19,7 +19,7 @@ print_banner() {
     echo -e "${CYAN}"
     echo "  ╔══════════════════════════════════════════════╗"
     echo "  ║       WEATHER STATION INSTALLER              ║"
-    echo "  ║       Stacja Pogodowa — OpenWeatherMap       ║"
+    echo "  ║       Powered by OpenWeatherMap + PHP        ║"
     echo "  ╚══════════════════════════════════════════════╝"
     echo -e "${NC}"
 }
@@ -59,7 +59,7 @@ validate_not_empty() {
     local val="$1"
     local name="$2"
     if [ -z "$val" ]; then
-        print_err "Pole '$name' nie może być puste."
+        print_err "Field '$name' cannot be empty."
         return 1
     fi
     return 0
@@ -69,134 +69,134 @@ validate_not_empty() {
 
 print_banner
 
-echo -e "  Instalator skonfiguruje projekt stacji pogodowej."
-echo -e "  Przed startem upewnij się, że masz:"
-echo -e "    ${YELLOW}•${NC} Klucz API OpenWeatherMap (openweathermap.org)"
-echo -e "    ${YELLOW}•${NC} Dostęp do crona na serwerze"
+echo -e "  This installer will set up a weather station project."
+echo -e "  Before you begin, make sure you have:"
+echo -e "    ${YELLOW}•${NC} An OpenWeatherMap API key (openweathermap.org)"
+echo -e "    ${YELLOW}•${NC} Cron access on the server"
 echo ""
-echo -ne "  Kontynuować? (${GREEN}T${NC}/${RED}n${NC}): "
+echo -ne "  Continue? (${GREEN}Y${NC}/${RED}n${NC}): "
 read confirm
 if [[ "$confirm" =~ ^[Nn]$ ]]; then
-    echo "Instalacja przerwana."
+    echo "Installation aborted."
     exit 0
 fi
 
-# ── KROK 1: Ścieżka instalacji ───────────────────────────────
+# ── STEP 1: Install path ─────────────────────────────────────
 
-print_step "Ścieżka instalacji"
-ask "Pełna ścieżka docelowa (np. /home/user/domains/mojadomena.pl/public_html)" "" INSTALL_PATH
-validate_not_empty "$INSTALL_PATH" "Ścieżka instalacji" || exit 1
+print_step "Install path"
+ask "Full destination path (e.g. /home/user/domains/mydomain.com/public_html)" "" INSTALL_PATH
+validate_not_empty "$INSTALL_PATH" "Install path" || exit 1
 INSTALL_PATH="${INSTALL_PATH%/}"
 
 if [ -d "$INSTALL_PATH" ] && [ "$(ls -A "$INSTALL_PATH" 2>/dev/null)" ]; then
-    print_warn "Katalog '$INSTALL_PATH' istnieje i nie jest pusty."
-    echo -ne "  Kontynuować mimo to? (${YELLOW}t${NC}/${RED}N${NC}): "
+    print_warn "Directory '$INSTALL_PATH' already exists and is not empty."
+    echo -ne "  Continue anyway? (${YELLOW}y${NC}/${RED}N${NC}): "
     read overwrite
-    if [[ ! "$overwrite" =~ ^[Tt]$ ]]; then
-        echo "Instalacja przerwana."
+    if [[ ! "$overwrite" =~ ^[Yy]$ ]]; then
+        echo "Installation aborted."
         exit 0
     fi
 fi
 
-# ── KROK 2: Typ bazy danych ──────────────────────────────────
+# ── STEP 2: Database type ────────────────────────────────────
 
-print_step "Typ bazy danych"
-echo -e "  ${BOLD}Wybierz typ bazy danych:${NC}"
-echo -e "    ${CYAN}1${NC}) MySQL / MariaDB  — wymaga serwera, użytkownika i hasła"
-echo -e "    ${CYAN}2${NC}) SQLite           — jeden plik, zero konfiguracji"
-echo -ne "  Wybór [${YELLOW}1${NC}/${YELLOW}2${NC}]: "
+print_step "Database type"
+echo -e "  ${BOLD}Select database type:${NC}"
+echo -e "    ${CYAN}1${NC}) MySQL / MariaDB  — requires a server, username and password"
+echo -e "    ${CYAN}2${NC}) SQLite           — single file, zero configuration"
+echo -ne "  Choice [${YELLOW}1${NC}/${YELLOW}2${NC}]: "
 read DB_CHOICE
 
 if [ "$DB_CHOICE" = "2" ]; then
     DB_TYPE="sqlite"
     SQLITE_DEFAULT="${INSTALL_PATH%/public_html}/weather.sqlite"
-    ask "Ścieżka do pliku SQLite" "$SQLITE_DEFAULT" SQLITE_PATH
-    validate_not_empty "$SQLITE_PATH" "Ścieżka SQLite" || exit 1
-    print_ok "Tryb: SQLite → $SQLITE_PATH"
+    ask "Path to SQLite file" "$SQLITE_DEFAULT" SQLITE_PATH
+    validate_not_empty "$SQLITE_PATH" "SQLite path" || exit 1
+    print_ok "Mode: SQLite → $SQLITE_PATH"
 else
     DB_TYPE="mysql"
-    ask "Host bazy danych" "localhost" DB_HOST
-    ask "Nazwa bazy danych" "" DB_NAME
-    validate_not_empty "$DB_NAME" "Nazwa bazy danych" || exit 1
-    ask "Użytkownik bazy danych" "" DB_USER
-    validate_not_empty "$DB_USER" "Użytkownik bazy danych" || exit 1
-    ask "Hasło bazy danych" "" DB_PASS "true"
-    validate_not_empty "$DB_PASS" "Hasło bazy danych" || exit 1
-    print_ok "Tryb: MySQL @ $DB_HOST / $DB_NAME"
+    ask "Database host" "localhost" DB_HOST
+    ask "Database name" "" DB_NAME
+    validate_not_empty "$DB_NAME" "Database name" || exit 1
+    ask "Database user" "" DB_USER
+    validate_not_empty "$DB_USER" "Database user" || exit 1
+    ask "Database password" "" DB_PASS "true"
+    validate_not_empty "$DB_PASS" "Database password" || exit 1
+    print_ok "Mode: MySQL @ $DB_HOST / $DB_NAME"
 fi
 
-# ── KROK 3: Pogoda ──────────────────────────────────────────
+# ── STEP 3: Weather config ───────────────────────────────────
 
-print_step "Konfiguracja pogody"
-ask "Nazwa miasta (po angielsku, np. Warsaw, Krakow, Gliwice)" "Gliwice" WEATHER_LOCATION
-ask "Klucz API OpenWeatherMap" "" WEATHER_API_KEY
-validate_not_empty "$WEATHER_API_KEY" "Klucz API" || exit 1
+print_step "Weather configuration"
+ask "City name (e.g. Warsaw, London, Berlin)" "London" WEATHER_LOCATION
+ask "OpenWeatherMap API key" "" WEATHER_API_KEY
+validate_not_empty "$WEATHER_API_KEY" "API key" || exit 1
 
-# ── KROK 4: Test połączenia z bazą ──────────────────────────
+# ── STEP 4: Test DB connection ───────────────────────────────
 
 if [ "$DB_TYPE" = "mysql" ]; then
-    print_step "Testowanie połączenia z bazą danych"
+    print_step "Testing database connection"
 
     DB_TEST=$(mysql -h "$DB_HOST" -u "$DB_USER" -p"$DB_PASS" "$DB_NAME" -e "SELECT 1;" 2>&1)
     if echo "$DB_TEST" | grep -q "ERROR\|error\|denied"; then
-        print_err "Nie można połączyć się z bazą danych:"
+        print_err "Cannot connect to database:"
         echo "    $DB_TEST"
         echo ""
-        echo -ne "  Kontynuować mimo błędu? (${YELLOW}t${NC}/${RED}N${NC}): "
+        echo -ne "  Continue anyway? (${YELLOW}y${NC}/${RED}N${NC}): "
         read db_force
-        if [[ ! "$db_force" =~ ^[Tt]$ ]]; then
+        if [[ ! "$db_force" =~ ^[Yy]$ ]]; then
             exit 1
         fi
     else
-        print_ok "Połączenie z bazą danych: OK"
+        print_ok "Database connection: OK"
     fi
 fi
 
-# ── KROK 5: Test klucza API ──────────────────────────────────
+# ── STEP 5: Test API key ─────────────────────────────────────
 
-print_step "Testowanie klucza API OpenWeatherMap"
+print_step "Testing OpenWeatherMap API key"
 
 API_TEST=$(curl -s -o /dev/null -w "%{http_code}" \
     "http://api.openweathermap.org/data/2.5/weather?q=${WEATHER_LOCATION}&appid=${WEATHER_API_KEY}&units=metric")
 
 if [ "$API_TEST" = "200" ]; then
-    print_ok "Klucz API i miasto: OK (HTTP 200)"
+    print_ok "API key and city: OK (HTTP 200)"
 elif [ "$API_TEST" = "401" ]; then
-    print_warn "Klucz API jest nieprawidłowy (HTTP 401). Możesz kontynuować, ale dane nie będą pobierane."
+    print_warn "Invalid API key (HTTP 401). You can continue, but data won't be fetched."
 elif [ "$API_TEST" = "404" ]; then
-    print_warn "Miasto '$WEATHER_LOCATION' nie zostało znalezione (HTTP 404). Sprawdź nazwę."
+    print_warn "City '$WEATHER_LOCATION' not found (HTTP 404). Check the name."
 else
-    print_warn "Nieoczekiwana odpowiedź API: HTTP $API_TEST"
+    print_warn "Unexpected API response: HTTP $API_TEST"
 fi
 
-# ── KROK 6: Tworzenie struktury katalogów ───────────────────
+# ── STEP 6: Create directory structure ───────────────────────
 
-print_step "Tworzenie katalogów"
+print_step "Creating directories"
 
 mkdir -p "$INSTALL_PATH/archive/old"
-print_ok "Katalog archive/ utworzony"
+print_ok "Directory archive/ created"
 
-# ── KROK 7: Kopiowanie plików ────────────────────────────────
+# ── STEP 7: Copy files ───────────────────────────────────────
 
-print_step "Kopiowanie plików projektu"
+print_step "Copying project files"
 
 for f in config.php update_data.php api.php db.php index.php .htaccess; do
     if [ -f "$TEMPLATE_DIR/$f" ]; then
         cp "$TEMPLATE_DIR/$f" "$INSTALL_PATH/$f"
-        print_ok "Skopiowano: $f"
+        print_ok "Copied: $f"
     else
-        print_warn "Brak pliku szablonu: $f"
+        print_warn "Missing template file: $f"
     fi
 done
 
-# arch.sh — zastąp placeholder rzeczywistą ścieżką
+# arch.sh — replace placeholder with actual install path
 sed "s|__INSTALL_PATH__|${INSTALL_PATH}|g" "$TEMPLATE_DIR/arch.sh" > "$INSTALL_PATH/arch.sh"
 chmod +x "$INSTALL_PATH/arch.sh"
-print_ok "Skopiowano i skonfigurowano: arch.sh"
+print_ok "Copied and configured: arch.sh"
 
-# ── KROK 8: Generowanie .env ─────────────────────────────────
+# ── STEP 8: Generate .env ────────────────────────────────────
 
-print_step "Generowanie pliku .env"
+print_step "Generating .env file"
 
 if [ "$DB_TYPE" = "sqlite" ]; then
     cat > "$INSTALL_PATH/.env" <<EOF
@@ -223,25 +223,25 @@ EOF
 fi
 
 chmod 600 "$INSTALL_PATH/.env"
-print_ok "Plik .env utworzony (uprawnienia 600)"
+print_ok ".env file created (permissions 600)"
 
-# ── KROK 9: Tworzenie tabeli ─────────────────────────────────
+# ── STEP 9: Create database table ────────────────────────────
 
-print_step "Tworzenie tabeli w bazie danych"
+print_step "Creating database table"
 
 if [ "$DB_TYPE" = "sqlite" ]; then
     SQLITE_DIR=$(dirname "$SQLITE_PATH")
     mkdir -p "$SQLITE_DIR"
 
     if [ -f "$SQLITE_PATH" ]; then
-        print_warn "Plik bazy SQLite już istnieje: $SQLITE_PATH"
-        echo -ne "  Usunąć i utworzyć nową (czysta instalacja)? (${RED}t${NC}/${GREEN}N${NC}): "
+        print_warn "SQLite file already exists: $SQLITE_PATH"
+        echo -ne "  Delete and create fresh (clean install)? (${RED}y${NC}/${GREEN}N${NC}): "
         read sqlite_overwrite
-        if [[ "$sqlite_overwrite" =~ ^[Tt]$ ]]; then
+        if [[ "$sqlite_overwrite" =~ ^[Yy]$ ]]; then
             rm "$SQLITE_PATH"
-            print_ok "Stara baza usunięta"
+            print_ok "Old database removed"
         else
-            print_warn "Zachowano istniejącą bazę — dane z poprzedniej instalacji pozostają"
+            print_warn "Keeping existing database — previous data remains"
         fi
     fi
 
@@ -257,40 +257,40 @@ if [ "$DB_TYPE" = "sqlite" ]; then
         }
     " 2>&1)
     if [ "$PHP_RESULT" = "OK" ]; then
-        print_ok "Baza SQLite i tabela weather_data gotowe: $SQLITE_PATH"
+        print_ok "SQLite database and weather_data table ready: $SQLITE_PATH"
     else
-        print_warn "Problem z utworzeniem bazy SQLite: $PHP_RESULT"
+        print_warn "Problem creating SQLite database: $PHP_RESULT"
     fi
 else
     mysql -h "$DB_HOST" -u "$DB_USER" -p"$DB_PASS" "$DB_NAME" < "$TEMPLATE_DIR/schema.sql" 2>&1
     if [ $? -eq 0 ]; then
-        print_ok "Tabela weather_data utworzona (lub już istniała)"
+        print_ok "Table weather_data created (or already existed)"
     else
-        print_warn "Nie udało się automatycznie utworzyć tabeli. Uruchom ręcznie:"
+        print_warn "Could not create table automatically. Run manually:"
         echo "    mysql -h $DB_HOST -u $DB_USER -p $DB_NAME < $TEMPLATE_DIR/schema.sql"
     fi
 fi
 
-# ── KROK 10: Pierwsze pobranie danych ────────────────────────
+# ── STEP 10: First data fetch ────────────────────────────────
 
-print_step "Pierwsze pobranie danych"
-echo -ne "  Uruchomić teraz pierwsze pobranie danych? (${GREEN}T${NC}/${RED}n${NC}): "
+print_step "First data fetch"
+echo -ne "  Fetch weather data now? (${GREEN}Y${NC}/${RED}n${NC}): "
 read run_first
 
 if [[ ! "$run_first" =~ ^[Nn]$ ]]; then
     RESULT=$(php "$INSTALL_PATH/update_data.php" 2>&1)
     if echo "$RESULT" | grep -q "✅"; then
-        print_ok "Dane pobrane pomyślnie:"
+        print_ok "Data fetched successfully:"
         echo "$RESULT" | sed 's/^/    /'
     else
-        print_warn "Odpowiedź skryptu:"
+        print_warn "Script response:"
         echo "$RESULT" | sed 's/^/    /'
     fi
 fi
 
-# ── KROK 11: Konfiguracja CRON ───────────────────────────────
+# ── STEP 11: Configure CRON ──────────────────────────────────
 
-print_step "Konfiguracja CRON"
+print_step "Configuring CRON"
 
 CRON_FETCH="0 * * * * php ${INSTALL_PATH}/update_data.php >/dev/null 2>&1"
 CRON_ARCH="59 * * * * ${INSTALL_PATH}/arch.sh >/dev/null 2>&1"
@@ -299,47 +299,47 @@ CURRENT_CRON=$(crontab -l 2>/dev/null)
 CRON_CHANGED=0
 
 if echo "$CURRENT_CRON" | grep -qF "$INSTALL_PATH/update_data.php"; then
-    print_warn "Wpis cron dla update_data.php już istnieje — pominięto"
+    print_warn "Cron entry for update_data.php already exists — skipped"
 else
     CURRENT_CRON="${CURRENT_CRON}"$'\n'"${CRON_FETCH}"
     CRON_CHANGED=1
-    print_ok "Dodano wpis cron: pobieranie danych co godzinę"
+    print_ok "Added cron: fetch weather data every hour"
 fi
 
 if echo "$CURRENT_CRON" | grep -qF "$INSTALL_PATH/arch.sh"; then
-    print_warn "Wpis cron dla arch.sh już istnieje — pominięto"
+    print_warn "Cron entry for arch.sh already exists — skipped"
 else
     CURRENT_CRON="${CURRENT_CRON}"$'\n'"${CRON_ARCH}"
     CRON_CHANGED=1
-    print_ok "Dodano wpis cron: archiwizacja co godzinę"
+    print_ok "Added cron: archive JSON files every hour"
 fi
 
 if [ $CRON_CHANGED -eq 1 ]; then
     echo "$CURRENT_CRON" | crontab -
     if [ $? -eq 0 ]; then
-        print_ok "Crontab zapisany pomyślnie"
+        print_ok "Crontab saved successfully"
     else
-        print_err "Nie udało się zapisać crontaba. Dodaj ręcznie:"
+        print_err "Could not save crontab. Add manually:"
         echo "    $CRON_FETCH"
         echo "    $CRON_ARCH"
     fi
 fi
 
-# ── PODSUMOWANIE ─────────────────────────────────────────────
+# ── SUMMARY ──────────────────────────────────────────────────
 
 echo ""
 echo -e "${GREEN}${BOLD}╔══════════════════════════════════════════════╗${NC}"
-echo -e "${GREEN}${BOLD}║         Instalacja zakończona!               ║${NC}"
+echo -e "${GREEN}${BOLD}║        Installation complete!                ║${NC}"
 echo -e "${GREEN}${BOLD}╚══════════════════════════════════════════════╝${NC}"
 echo ""
-echo -e "  ${BOLD}Ścieżka instalacji:${NC} $INSTALL_PATH"
-echo -e "  ${BOLD}Miasto:${NC}             $WEATHER_LOCATION"
+echo -e "  ${BOLD}Install path:${NC} $INSTALL_PATH"
+echo -e "  ${BOLD}City:${NC}         $WEATHER_LOCATION"
 if [ "$DB_TYPE" = "sqlite" ]; then
-    echo -e "  ${BOLD}Baza danych:${NC}        SQLite → $SQLITE_PATH"
+    echo -e "  ${BOLD}Database:${NC}     SQLite → $SQLITE_PATH"
 else
-    echo -e "  ${BOLD}Baza danych:${NC}        MySQL → $DB_NAME @ $DB_HOST"
+    echo -e "  ${BOLD}Database:${NC}     MySQL → $DB_NAME @ $DB_HOST"
 fi
 echo ""
-echo -e "  ${YELLOW}Strona dostępna po skonfigurowaniu domeny na:${NC}"
-echo -e "  ${CYAN}${INSTALL_PATH}/index.html${NC}"
+echo -e "  ${YELLOW}Site available after configuring your domain to:${NC}"
+echo -e "  ${CYAN}${INSTALL_PATH}/index.php${NC}"
 echo ""
