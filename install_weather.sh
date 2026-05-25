@@ -232,6 +232,19 @@ print_step "Tworzenie tabeli w bazie danych"
 if [ "$DB_TYPE" = "sqlite" ]; then
     SQLITE_DIR=$(dirname "$SQLITE_PATH")
     mkdir -p "$SQLITE_DIR"
+
+    if [ -f "$SQLITE_PATH" ]; then
+        print_warn "Plik bazy SQLite już istnieje: $SQLITE_PATH"
+        echo -ne "  Usunąć i utworzyć nową (czysta instalacja)? (${RED}t${NC}/${GREEN}N${NC}): "
+        read sqlite_overwrite
+        if [[ "$sqlite_overwrite" =~ ^[Tt]$ ]]; then
+            rm "$SQLITE_PATH"
+            print_ok "Stara baza usunięta"
+        else
+            print_warn "Zachowano istniejącą bazę — dane z poprzedniej instalacji pozostają"
+        fi
+    fi
+
     PHP_RESULT=$(php -r "
         try {
             \$pdo = new PDO('sqlite:$SQLITE_PATH');
@@ -244,7 +257,7 @@ if [ "$DB_TYPE" = "sqlite" ]; then
         }
     " 2>&1)
     if [ "$PHP_RESULT" = "OK" ]; then
-        print_ok "Baza SQLite i tabela weather_data utworzone: $SQLITE_PATH"
+        print_ok "Baza SQLite i tabela weather_data gotowe: $SQLITE_PATH"
     else
         print_warn "Problem z utworzeniem bazy SQLite: $PHP_RESULT"
     fi
