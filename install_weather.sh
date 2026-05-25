@@ -295,20 +295,34 @@ print_step "Configuring CRON"
 CRON_FETCH="0 * * * * php ${INSTALL_PATH}/update_data.php >/dev/null 2>&1"
 CRON_ARCH="59 * * * * ${INSTALL_PATH}/arch.sh >/dev/null 2>&1"
 
+# Read existing crontab exactly once
 EXISTING_CRON=$(crontab -l 2>/dev/null)
+NEW_ENTRIES=""
 
 if echo "$EXISTING_CRON" | grep -qF "$INSTALL_PATH/update_data.php"; then
     print_warn "Cron entry for update_data.php already exists — skipped"
 else
-    (crontab -l 2>/dev/null; echo "$CRON_FETCH") | crontab -
-    print_ok "Added cron: fetch weather data every hour"
+    NEW_ENTRIES="${NEW_ENTRIES}"$'\n'"${CRON_FETCH}"
+    print_ok "Queued cron: fetch weather data every hour"
 fi
 
 if echo "$EXISTING_CRON" | grep -qF "$INSTALL_PATH/arch.sh"; then
     print_warn "Cron entry for arch.sh already exists — skipped"
 else
-    (crontab -l 2>/dev/null; echo "$CRON_ARCH") | crontab -
-    print_ok "Added cron: archive JSON files every hour"
+    NEW_ENTRIES="${NEW_ENTRIES}"$'\n'"${CRON_ARCH}"
+    print_ok "Queued cron: archive JSON files every hour"
+fi
+
+# Write back exactly once — existing content untouched, new entries appended
+if [ -n "$NEW_ENTRIES" ]; then
+    ( echo "$EXISTING_CRON"; echo "$NEW_ENTRIES" ) | crontab -
+    if [ $? -eq 0 ]; then
+        print_ok "Crontab saved successfully"
+    else
+        print_err "Could not save crontab. Add manually:"
+        echo "    $CRON_FETCH"
+        echo "    $CRON_ARCH"
+    fi
 fi
 
 # ── SUMMARY ──────────────────────────────────────────────────
