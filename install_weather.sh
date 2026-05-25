@@ -295,34 +295,20 @@ print_step "Configuring CRON"
 CRON_FETCH="0 * * * * php ${INSTALL_PATH}/update_data.php >/dev/null 2>&1"
 CRON_ARCH="59 * * * * ${INSTALL_PATH}/arch.sh >/dev/null 2>&1"
 
-CURRENT_CRON=$(crontab -l 2>/dev/null)
-CRON_CHANGED=0
+EXISTING_CRON=$(crontab -l 2>/dev/null)
 
-if echo "$CURRENT_CRON" | grep -qF "$INSTALL_PATH/update_data.php"; then
+if echo "$EXISTING_CRON" | grep -qF "$INSTALL_PATH/update_data.php"; then
     print_warn "Cron entry for update_data.php already exists — skipped"
 else
-    CURRENT_CRON="${CURRENT_CRON}"$'\n'"${CRON_FETCH}"
-    CRON_CHANGED=1
+    (crontab -l 2>/dev/null; echo "$CRON_FETCH") | crontab -
     print_ok "Added cron: fetch weather data every hour"
 fi
 
-if echo "$CURRENT_CRON" | grep -qF "$INSTALL_PATH/arch.sh"; then
+if echo "$EXISTING_CRON" | grep -qF "$INSTALL_PATH/arch.sh"; then
     print_warn "Cron entry for arch.sh already exists — skipped"
 else
-    CURRENT_CRON="${CURRENT_CRON}"$'\n'"${CRON_ARCH}"
-    CRON_CHANGED=1
+    (crontab -l 2>/dev/null; echo "$CRON_ARCH") | crontab -
     print_ok "Added cron: archive JSON files every hour"
-fi
-
-if [ $CRON_CHANGED -eq 1 ]; then
-    echo "$CURRENT_CRON" | crontab -
-    if [ $? -eq 0 ]; then
-        print_ok "Crontab saved successfully"
-    else
-        print_err "Could not save crontab. Add manually:"
-        echo "    $CRON_FETCH"
-        echo "    $CRON_ARCH"
-    fi
 fi
 
 # ── SUMMARY ──────────────────────────────────────────────────
