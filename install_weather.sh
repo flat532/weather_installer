@@ -180,7 +180,7 @@ print_ok "Katalog archive/ utworzony"
 
 print_step "Kopiowanie plików projektu"
 
-for f in config.php update_data.php api.php db.php index.html .htaccess; do
+for f in config.php update_data.php api.php db.php index.php .htaccess; do
     if [ -f "$TEMPLATE_DIR/$f" ]; then
         cp "$TEMPLATE_DIR/$f" "$INSTALL_PATH/$f"
         print_ok "Skopiowano: $f"

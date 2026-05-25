@@ -1,10 +1,11 @@
+<?php $config = require 'config.php'; $city = htmlspecialchars($config['weather_api']['location']); ?>
 <!DOCTYPE html>
 <html lang="pl">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Stacja Pogodowa Gliwice</title>
+    <title>Stacja Pogodowa <?php echo $city; ?></title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -278,7 +279,7 @@
     <nav class="navbar navbar-dark mb-3 sticky-top">
         <div class="container-fluid d-flex justify-content-between align-items-center">
             <div class="d-flex align-items-center">
-                <span class="navbar-brand mb-0 h1">🌤️ Gliwice</span>
+                <span class="navbar-brand mb-0 h1">🌤️ <?php echo $city; ?></span>
             </div>
 
             <div id="dstInfo" class="text-white text-center d-none d-lg-block" style="font-size: 0.9rem;">
