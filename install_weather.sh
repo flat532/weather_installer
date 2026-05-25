@@ -283,12 +283,21 @@ read run_first
 
 if [[ ! "$run_first" =~ ^[Nn]$ ]]; then
     RESULT=$(php "$INSTALL_PATH/update_data.php" 2>&1)
+    # strip HTML: replace <br> with newlines, remove remaining tags and emoji
+    CLEAN=$(echo "$RESULT" \
+        | sed 's/<br>/\n/g; s/<br\/>/\n/g' \
+        | sed 's/<[^>]*>//g' \
+        | sed 's/✅//g; s/❌//g' \
+        | sed 's/^[[:space:]]*//' \
+        | grep -v '^$')
     if echo "$RESULT" | grep -q "✅"; then
-        print_ok "Data fetched successfully:"
-        echo "$RESULT" | sed 's/^/    /'
+        echo "$CLEAN" | while IFS= read -r line; do
+            print_ok "$line"
+        done
     else
-        print_warn "Script response:"
-        echo "$RESULT" | sed 's/^/    /'
+        echo "$CLEAN" | while IFS= read -r line; do
+            print_warn "$line"
+        done
     fi
 fi
 
